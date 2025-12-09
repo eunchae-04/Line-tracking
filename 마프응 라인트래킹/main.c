@@ -2,54 +2,54 @@
 #include <stdint.h>
 #include <stdlib.h> 
 
-// Æ©´× ÆÄ¶ó¹ÌÅÍ
+// íŠœë‹ íŒŒë¼ë¯¸í„°
 #define IR_THRESHOLD     500      
 #define IR_WHITE_LIMIT   1500     
 #define PWM_PERIOD       1000 
 
-// ¼Óµµ ¼³Á¤
+// ì†ë„ ì„¤ì •
 #define SPEED_BASE       650     
-#define SPEED_TURN_BASE  300    // ÄÚ³Ê¸µ ÁøÀÔ ¼Óµµ
-#define SPEED_MAX        950    // 95% Á¦ÇÑ
-#define SPEED_MIN        50     // 5% Á¦ÇÑ
-#define SPEED_SEARCH     600    // Å½»ö ¼Óµµ
-#define RIGHT_MOTOR_GAIN 1.15   // ÇÏµå¿ş¾î º¸Á¤ °ÔÀÎ
+#define SPEED_TURN_BASE  300     // ì½”ë„ˆë§ ì§„ì… ì†ë„
+#define SPEED_MAX        950     // 95% ì œí•œ
+#define SPEED_MIN        50      // 5% ì œí•œ
+#define SPEED_SEARCH     600     // íƒìƒ‰ ì†ë„
+#define RIGHT_MOTOR_GAIN 1.15    // í•˜ë“œì›¨ì–´ ë³´ì • ê²Œì¸
 
-// ÀÌÅ» ¹æÁö & ¹æÇâ ±â¾ï
-#define LOST_LINE_DELAY  5      // 5ms ÀÌ»ó °¨Áö ¾È µÇ¸é ÀÌÅ»·Î °£ÁÖ
-#define DIR_THRESHOLD    200    // ¹æÇâ ±â¾ï °»½Å ÀÓ°è°ª
+// ì´íƒˆ ë°©ì§€ & ë°©í–¥ ê¸°ì–µ
+#define LOST_LINE_DELAY  5       // 5ms ì´ìƒ ê°ì§€ ì•ˆ ë˜ë©´ ì´íƒˆë¡œ ê°„ì£¼
+#define DIR_THRESHOLD    200     // ë°©í–¥ ê¸°ì–µ ê°±ì‹  ì„ê³„ê°’
 
-// Á¦¾î »ó¼ö
+// ì œì–´ ìƒìˆ˜
 #define K_P              16
 #define K_D              30      
 
-// Àü¿ª º¯¼ö
+// ì „ì—­ ë³€ìˆ˜
 volatile uint32_t SensorValues[3] = {0, 0, 0}; 
 volatile long LastError = 0; 
 volatile int LostLineCounter = 0;
 volatile int LastValidDirection = 0; 
-volatile int g_TickSemaphore; // ¼¼¸¶Æ÷¾î º¯¼ö
+volatile int g_TickSemaphore; // ì„¸ë§ˆí¬ì–´ ë³€ìˆ˜
 
-// ¼¼¸¶Æ÷¾î ÃÊ±âÈ­
+// ì„¸ë§ˆí¬ì–´ ì´ˆê¸°í™”
 void OS_Semaphore_Init(volatile int *sema, int initialValue) {
     *sema = initialValue;
 }
 
-// [Signal / V¿¬»ê] ÀÚ¿øÀ» ³õ¾ÆÁÜ (ISR¿¡¼­ È£Ãâ)
+// [Signal / Vì—°ì‚°] ìì›ì„ ë†“ì•„ì¤Œ (ISRì—ì„œ í˜¸ì¶œ)
 void OS_Signal(volatile int *sema) {
-    (*sema)++; // ¼¼¸¶Æ÷¾î Ä«¿îÆ® Áõ°¡
+    (*sema)++; // ì„¸ë§ˆí¬ì–´ ì¹´ìš´íŠ¸ ì¦ê°€
 }
 
-// [Wait / P¿¬»ê] ÀÚ¿øÀ» È¹µæÇÒ ¶§±îÁö ´ë±â (Main¿¡¼­ È£Ãâ)
+// [Wait / Pì—°ì‚°] ìì›ì„ íšë“í•  ë•Œê¹Œì§€ ëŒ€ê¸° (Mainì—ì„œ í˜¸ì¶œ)
 void OS_Wait(volatile int *sema) {
-    // ¼¼¸¶Æ÷¾î °ªÀÌ 0º¸´Ù ÀÛ°Å³ª °°À¸¸é ¹«ÇÑ ´ë±â
+    // ì„¸ë§ˆí¬ì–´ ê°’ì´ 0ë³´ë‹¤ ì‘ê±°ë‚˜ ê°™ìœ¼ë©´ ë¬´í•œ ëŒ€ê¸°
     while((*sema) <= 0) {
-        // ´ë±â
+        // ëŒ€ê¸°
     }
-    (*sema)--; // ÀÚ¿ø È¹µæ ÈÄ Ä«¿îÆ® °¨¼Ò
+    (*sema)--; // ìì› íšë“ í›„ ì¹´ìš´íŠ¸ ê°ì†Œ
 }
 
-// ÇÔ¼ö ¼±¾ğ
+// í•¨ìˆ˜ ì„ ì–¸
 void System_Init(void);
 void ADC_Input_Init(void);
 void PortF_Init(void);
@@ -71,27 +71,24 @@ int main(void) {
     System_Init();
     GPIO_PORTA_DATA_R |= 0x14; 
     
-	// ¼¼¸¶Æ÷¾î ÃÊ±âÈ­: 0À¸·Î ½ÃÀÛ
+    // ì„¸ë§ˆí¬ì–´ ì´ˆê¸°í™”: 0ìœ¼ë¡œ ì‹œì‘
     OS_Semaphore_Init(&g_TickSemaphore, 0);
 
     EnableInterrupts(); 
 
     while(1) {
+        // [Main Loop] ë°ì´í„°ê°€ ì¤€ë¹„ë  ë•Œê¹Œì§€ ëŒ€ê¸°
         OS_Wait(&g_TickSemaphore); 
 
-			// 1. ¼¾¼­ ÀĞ±â
-        SensorValues[0] = ADC_Read_Average(0); // PE3 (¿ì)
-        SensorValues[1] = ADC_Read_Average(1); // PE2 (Áß)
-        SensorValues[2] = ADC_Read_Average(2); // PE1 (ÁÂ)
 
-        // 2. ¿¡·¯ °è»ê ¹× ¶óÀÎ »óÅÂ ÆÇ´Ü
+        // 1. ì—ëŸ¬ ê³„ì‚° ë° ë¼ì¸ ìƒíƒœ íŒë‹¨
         numerator   = ((long)SensorValues[0] * 1000) - ((long)SensorValues[2] * 1000);
         denominator = (long)SensorValues[0] + (long)SensorValues[1] + (long)SensorValues[2];
         
         is_line_lost = (denominator < IR_THRESHOLD || 
                        (SensorValues[0] < IR_WHITE_LIMIT && SensorValues[1] < IR_WHITE_LIMIT && SensorValues[2] < IR_WHITE_LIMIT));
 
-        // 3. ÁÖÇà Á¦¾î
+        // 2. ì£¼í–‰ ì œì–´ (ì•Œê³ ë¦¬ì¦˜)
         if (is_line_lost) {
             LostLineCounter++;
             
@@ -126,12 +123,18 @@ int main(void) {
     }
 }
 
-// SysTick ÇÚµé·¯
+// SysTick í•¸ë“¤ëŸ¬
 void SysTick_Handler(void) {
+    // 1. ì„¼ì„œ ì½ê¸°
+    SensorValues[0] = ADC_Read_Average(0); // PE3 (ìš°)
+    SensorValues[1] = ADC_Read_Average(1); // PE2 (ì¤‘)
+    SensorValues[2] = ADC_Read_Average(2); // PE1 (ì¢Œ)
+
+    // 2. ë°ì´í„° ì¤€ë¹„ ì™„ë£Œ ì‹ í˜¸ ì „ì†¡
     OS_Signal(&g_TickSemaphore);
 }
 
-// ¸ğÅÍ ¼³Á¤ ÇÔ¼ö
+// ëª¨í„° ì„¤ì • í•¨ìˆ˜
 void Set_Motors(long speed_L, long speed_R) {
     speed_R = (long)(speed_R * RIGHT_MOTOR_GAIN);
     if (speed_L > SPEED_MAX) speed_L = SPEED_MAX;
@@ -142,7 +145,7 @@ void Set_Motors(long speed_L, long speed_R) {
     PWM0_0_CMPB_R = (unsigned long)speed_R;
 }
 
-// LED »óÅÂ Ç¥½Ã ÇÔ¼ö
+// LED ìƒíƒœ í‘œì‹œ í•¨ìˆ˜
 void Set_LED_Status(long error, int isLost) {
     if (isLost) {
         GPIO_PORTF_DATA_R = 0x0E; 
@@ -153,7 +156,7 @@ void Set_LED_Status(long error, int isLost) {
     }
 }
 
-// ÃÊ±âÈ­ ÇÔ¼öµé
+// ì´ˆê¸°í™” í•¨ìˆ˜ë“¤
 uint32_t ADC_Read_Average(uint32_t channelNum) {
     uint32_t sum = 0;
     int i;
@@ -171,7 +174,7 @@ uint32_t ADC_Read_Average(uint32_t channelNum) {
 void System_Init(void) {
     PortA_Output_Init(); 
     ADC_Input_Init();        
-    PortF_Init();           
+    PortF_Init();          
     Hardware_PWM_Init(); 
     SysTick_Init();        
 }
